@@ -34,6 +34,7 @@ export async function models() {
 export async function consumeStream(body) {
   const decoder = new TextDecoder();
   let pending = '', completed, total = 0;
+  const doneItems = new Map();
   for await (const chunk of body) {
     total += chunk.length;
     if (total > 8 * 1024 * 1024) throw new Error('Response size limit exceeded');
@@ -46,6 +47,9 @@ export async function consumeStream(body) {
         .map(line => line.slice(5).trimStart()).join('\n');
       if (!data || data === '[DONE]') continue;
       const event = JSON.parse(data);
+      if (event.type === 'response.output_item.done' && event.item) {
+        doneItems.set(event.output_index ?? doneItems.size, event.item);
+      }
       if (['response.failed', 'response.incomplete', 'error'].includes(event.type)) {
         const code = event.response?.error?.code || event.code || event.type;
         throw new Error('Inference stopped: ' + String(code).replace(/[^a-z0-9_.-]/gi, '').slice(0, 100));
@@ -54,6 +58,10 @@ export async function consumeStream(body) {
     }
   }
   if (!completed) throw new Error('Stream ended without response.completed');
+  // Some eligible streaming routes send final items only in output_item.done.
+  if (!completed.output?.length && doneItems.size) {
+    completed.output = [...doneItems.entries()].sort((a, b) => a[0] - b[0]).map(([, item]) => item);
+  }
   return completed;
 }
 

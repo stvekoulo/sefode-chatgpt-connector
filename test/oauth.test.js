@@ -46,3 +46,9 @@ test('completed response is required and preserved', async () => {
   const result = await consumeStream(chunks('data: {"type":"response.completed","response":{"id":"test","output":[]}}\n\n'));
   assert.equal(result.id, 'test');
 });
+test('final streamed items are preserved when terminal output is empty', async () => {
+  const result = await consumeStream(chunks(
+    'data: {"type":"response.output_item.done","output_index":0,"item":{"id":"m1","type":"message","content":[{"type":"output_text","text":"Verified"}]}}\n\n' +
+    'data: {"type":"response.completed","response":{"id":"test","output":[]}}\n\n'));
+  assert.equal(result.output[0].content[0].text, 'Verified');
+});
