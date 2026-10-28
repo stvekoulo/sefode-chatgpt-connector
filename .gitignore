@@ -6,3 +6,5 @@ auth/
 credentials.json
 authorization-url.txt
 *.log
+__pycache__/
+*.pyc
